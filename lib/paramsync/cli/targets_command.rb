@@ -5,13 +5,13 @@ class Paramsync
     class TargetsCommand
       class << self
         def run
-          Paramsync::CLI.configure(call_external_apis: false)
+          Paramsync::CLI.configure
 
           Paramsync.config.sync_targets.each do |target|
             if target.name
               puts target.name
             else
-              puts "[unnamed target] #{target.datacenter}:#{target.prefix}"
+              puts "[unnamed target] #{target.region}:#{target.prefix}"
             end
           end
         end

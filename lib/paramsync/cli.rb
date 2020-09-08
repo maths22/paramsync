@@ -3,6 +3,7 @@
 require_relative '../paramsync'
 require 'diffy'
 require_relative 'cli/check_command'
+require_relative 'cli/encrypt_command'
 require_relative 'cli/push_command'
 require_relative 'cli/pull_command'
 require_relative 'cli/config_command'
@@ -54,8 +55,9 @@ Usage:
 
 Commands:
   check        Print a summary of changes to be made
-  push         Push changes from filesystem to Consul
-  pull         Pull changes from Consul to filesystem
+  push         Push changes from filesystem to parameter store
+  pull         Pull changes from parameter store to filesystem
+  encrypt      Encrypt a string for the file
   config       Print a summary of the active configuration
   targets      List target names
 
@@ -77,11 +79,11 @@ USAGE
         exit 1
       end
 
-      def configure(call_external_apis: true)
+      def configure
         return if Paramsync.configured?
 
         begin
-          Paramsync.configure(path: self.config_file, targets: self.targets, call_external_apis: call_external_apis)
+          Paramsync.configure(path: self.config_file, targets: self.targets)
 
         rescue Paramsync::ConfigFileNotFound
           if self.config_file.nil?
@@ -98,14 +100,6 @@ USAGE
             STDERR.puts "paramsync: ERROR: Configuration file '#{self.config_file}' is invalid:"
           end
           STDERR.puts "  #{e}"
-          exit 1
-
-        rescue Paramsync::ConsulTokenRequired => e
-          STDERR.puts "paramsync: ERROR: No Consul token could be found: #{e}"
-          exit 1
-
-        rescue Paramsync::VaultConfigInvalid => e
-          STDERR.puts "paramsync: ERROR: Vault configuration invalid: #{e}"
           exit 1
 
         end
@@ -132,6 +126,7 @@ USAGE
           when 'check'      then Paramsync::CLI::CheckCommand.run(self.extra_args)
           when 'push'       then Paramsync::CLI::PushCommand.run(self.extra_args)
           when 'pull'       then Paramsync::CLI::PullCommand.run(self.extra_args)
+          when 'encrypt'    then Paramsync::CLI::EncryptCommand.run(self.extra_args)
           when 'config'     then Paramsync::CLI::ConfigCommand.run
           when 'targets'    then Paramsync::CLI::TargetsCommand.run
           when nil          then self.print_usage

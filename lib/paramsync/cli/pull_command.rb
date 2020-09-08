@@ -48,7 +48,7 @@ class Paramsync
                 # attempt to write atomically-ish
                 tmpfile = item.filename + ".paramsync-tmp"
                 File.open(tmpfile, "w") do |f|
-                  f.write(item.remote_content)
+                  f.write(writable_content(item.remote_content))
                 end
                 FileUtils.move(tmpfile, item.filename)
                 puts "   OK".bold
@@ -63,7 +63,7 @@ class Paramsync
                 # attempt to write atomically-ish
                 tmpfile = item.filename + ".paramsync-tmp"
                 File.open(tmpfile, "w") do |f|
-                  f.write(item.remote_content)
+                  f.write(writable_content(item.remote_content))
                 end
                 FileUtils.move(tmpfile, item.filename)
                 puts "   OK".bold
@@ -112,7 +112,7 @@ class Paramsync
             # attempt to write atomically-ish
             tmpfile = filename + ".paramsync-tmp"
             File.open(tmpfile, "w") do |f|
-              f.write(diff.final_items.to_yaml)
+              f.write(diff.final_items.transform_values { |v| writable_content(v) }.to_yaml)
             end
             FileUtils.move(tmpfile, filename)
             puts "   OK".bold
@@ -120,6 +120,19 @@ class Paramsync
             puts "   ERROR".bold.red
             puts "  #{e}"
           end
+        end
+
+        private
+
+        def writable_content(remote_content)
+          to_write = remote_content[0]
+          if(remote_content[1])
+            to_write = Paramsync.config.kms_client.encrypt(
+              key_id: Paramsync.config.kms_key,
+              plaintext: to_write
+            ).ciphertext_blob
+          end
+          to_write
         end
 
       end

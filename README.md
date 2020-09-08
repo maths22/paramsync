@@ -1,23 +1,23 @@
 # paramsync
 
 Paramsync is a simple, straightforward CLI tool for synchronizing data from the
-filesystem to the Consul KV store and vice-versa.
+filesystem to the AWS parameter store KV store and vice-versa.
 
 ## Basic Usage
 
 Run `paramsync check` to see what differences exist, and `paramsync push` to
-synchronize the changes from the filesystem to Consul.
+synchronize the changes from the filesystem to parameter store.
 
     $ paramsync check
     =====================================================================================
     myapp-private
-    local:consul/private => consul:dc1:private/myapp
+    local:path/private => ssm:us-east-1:private/myapp
       Keys scanned: 37
     No changes to make for this sync target.
 
     =====================================================================================
     myapp-config
-    local:consul/config => consul:dc1:config/myapp
+    local:path/config => ssm:us-east-1:config/myapp
       Keys scanned: 80
 
     UPDATE config/myapp/prod/ip-allowlist.json
@@ -35,7 +35,7 @@ the `--target` flag:
     $ paramsync push --target myapp-config
     =====================================================================================
     myapp-config
-    local:consul/config => consul:dc1:config/myapp
+    local:path/config => ssm:us-east-1:config/myapp
       Keys scanned: 80
 
     UPDATE config/myapp/prod/ip-allowlist.json
@@ -56,9 +56,9 @@ Run `paramsync --help` for additional options and commands.
 
 ## Pull Mode
 
-Paramsync can also sync _from_ Consul to the local filesystem. This can be
-particularly useful for seeding a git repo with the current contents of a Consul
-KV database.
+Paramsync can also sync _from_ parameter store to the local filesystem. This can be
+particularly useful for seeding a git repo with the current contents of a parameter
+store config.
 
 Run `paramsync check --pull` to get a summary of changes, and `paramsync pull`
 to actually sync the changes to the local filesystem. Additional arguments such
@@ -80,10 +80,10 @@ argument.
 ### Configuration file structure
 
 The configuration file is a Hash represented in YAML format with three possible
-top-level keys: `paramsync`, `consul`, and `sync`. The `paramsync` section sets
-global defaults and app options. The `consul` section specifies the URL to the
-Consul REST API endpoint. And the `sync` section lists the directories and
-Consul prefixes you wish to synchronize. Only the `sync` section is strictly
+top-level keys: `paramsync`, `ssm`, and `sync`. The `paramsync` section sets
+global defaults and app options. The `ssm` section specifies the roles to
+assume for aws. And the `sync` section lists the directories and
+ssm prefixes you wish to synchronize. Only the `sync` section is strictly
 required. An example `paramsync.yml` is below including explanatory comments:
 
     # paramsync.yml
@@ -102,7 +102,7 @@ required. An example `paramsync.yml` is below including explanatory comments:
 
       # delete - defaults to `false`
       #   Set this to `true` to make the default for all sync targets to
-      #   delete any keys found in Consul that do not have a corresponding
+      #   delete any keys found in parameter store that do not have a corresponding
       #   file on disk. By default, extraneous remote keys will be ignored.
       #   If `verbose` is set to `true` the extraneous keys will be named
       #   in the output.
@@ -113,50 +113,10 @@ required. An example `paramsync.yml` is below including explanatory comments:
       #   with an automated tool).
       color: true
 
-    consul:
-      # url - defaults to `http://localhost:8500`
-      #   The REST API endpoint for the Consul agent.
-      url: http://localhost:8500
-
-      # datacenter - defaults to nil
-      #   Set this to change the default datacenter for sync targets to
-      #   something other than the datacenter of the Consul agent.
-      datacenter: dc1
-
-      # token_source - defaults to 'none'
-      #   'none': expect no Consul token (although env vars will be used if they are set)
-      #   'env': expect Consul token to be set in CONSUL_TOKEN or CONSUL_HTTP_TOKEN
-      #   'vault': read Consul token from Vault based on settings in the 'vault' section
-      #   'vault.<label>': a named Vault token source, eg `vault.us-east-1` or `vault.dev`
-      #      NOTE: labels must begin with a letter and may contain only (ASCII) letters,
-      #            numbers, hyphens, and underscores
-
-    # the vault section is only necessary if consul.token_source is set to 'vault'
-    vault:
-      # url - defaults to the value of VAULT_ADDR
-      #   The REST API endpoint of your Vault server
-      url: https://your.vault.example
-
-      # consul_token_path - the path to the endpoint from which to read the Consul token
-      #   The Vault URI path to the Consul token - can be either the Consul
-      #   dynamic backend or a KV endpoint with a static value. If the dynamic
-      #   backend is used, the lease will be automatically revoked when
-      #   paramsync exits.
-      consul_token_path: consul/creds/my-role
-
-      # consul_token_field - name of the field in which the Consul token is stored
-      #   Defaults to 'token' which is the field used by the dynamic backend
-      #   but can be set to something else for static values.
-      consul_token_field: token
-
-    # You can define one or more 'vault.<label>' sections to define alternative Vault
-    # token sources for use in individual sync targets.
-    vault.other:
-      url: https://your.vault.example
-      consul_token_path: consul/creds/my-other-role
-    vault.dev:
-      url: https://dev.vault.example
-      consul_token_path: consul/creds/my-dev-role
+    ssm:
+      accounts:
+        account1:
+          role: arn:aws:iam::123456789012:role/admin
 
     sync:
       # sync is an array of hashes of sync target configurations
@@ -164,33 +124,27 @@ required. An example `paramsync.yml` is below including explanatory comments:
       #     name - The arbitrary friendly name of the sync target. Only
       #       required if you wish to target specific sync targets using
       #       the `--target` CLI flag.
-      #     prefix - (required) The Consul KV prefix to synchronize to.
+      #     prefix - (required) The parameter store prefix to synchronize to.
       #     type - (default: "dir") The type of local file storage. Either
       #       'dir' to indicate a directory tree of files corresponding to
-      #       Consul keys; or 'file' to indicate a single YAML file with a
+      #       parameter store keys; or 'file' to indicate a single YAML file with a
       #       map of relative key paths to values.
-      #     datacenter - The Consul datacenter to synchronize to. If not
-      #       specified, the `datacenter` setting in the `consul` section
-      #       will be used. If that is also not specified, the sync will
-      #       happen with the local datacenter of the Consul agent.
+      #     region - (required) The aws region to synchronize to
       #     path - (required) The relative filesystem path to either the
       #       directory containing the files with content to synchronize
-      #       to Consul if this sync target has type=dir, or the local file
+      #       to parameter store if this sync target has type=dir, or the local file
       #       containing a hash of remote keys if this sync target has
       #       type=file. This path is calculated relative to the directory
       #       containing the configuration file.
-      #     token_source - An alternative token source other than the
-      #       default. Potential values are the same as for the
-      #       consul.token_source config value: 'none', 'env', 'vault',
-      #       or 'vault.<label>'.
+      #     account - (account) The account from the ssm block to use
       #     delete - Whether or not to delete remote keys that do not exist
       #       in the local filesystem. This inherits the setting from the
       #       `paramsync` section, or if not specified, defaults to `false`.
       #     chomp - Whether or not to chomp a single newline character off
-      #       the contents of local files before synchronizing to Consul.
+      #       the contents of local files before synchronizing to parameter store.
       #       This inherits the setting from the `paramsync` section, or if
       #       not specified, defaults to `true`.
-      #     exclude - An array of Consul KV paths to exclude from the
+      #     exclude - An array of parameter store paths to exclude from the
       #       sync process. These exclusions will be noted in output if the
       #       verbose mode is in effect, otherwise they will be silently
       #       ignored. At this time there is no provision for specifying
@@ -201,23 +155,24 @@ required. An example `paramsync.yml` is below including explanatory comments:
       #       to `false`.
       - name: myapp-config
         prefix: config/myapp
-        datacenter: dc1
-        path: consul/config
+        region: us-east-1
+        path: path/config
         exclude:
-          - config/myapp/beta/cowboy-yolo
-          - config/myapp/prod/cowboy-yolo
+          - config/myapp/beta.cowboy-yolo
+          - config/myapp/prod.cowboy-yolo
+        account: account1
       - name: myapp-private
         prefix: private/myapp
         type: dir
-        datacenter: dc1
-        path: consul/private
-        token_source: vault.dev
+        region: us-east-1
+        path: path/private
+        account: account1
         delete: true
       - name: yourapp-config
         prefix: config/yourapp
         type: file
-        datacenter: dc1
-        path: consul/yourapp.yml
+        region: us-east-1
+        path: path/yourapp.yml
         delete: true
         erb_enabled: true
 
@@ -234,7 +189,7 @@ contents of those keys. So for example, given this configuration:
       - name: config
         prefix: config/yourapp
         type: file
-        datacenter: dc1
+        region: us-east-1
         path: yourapp.yml
 
 If the file `yourapp.yml` has the following content:
@@ -307,7 +262,7 @@ and pull values from any keys under `config/yourapp/` into the file
 `yourapp.yml`, overwriting whatever values are there.
 
 **NOTE**: Values in local file targets are converted to strings before comparing
-with or uploading to the remote Consul server. However, because YAML parsing
+with or uploading to the parameter store. However, because YAML parsing
 converts some values (such as `yes` or `no`) to boolean types, the effective
 value of a key with a value of a bare `yes` will be `true` when converted to a
 string. If you need the actual values `yes` or `no`, use quotes around the value
@@ -341,14 +296,14 @@ operations on a per-target basis. Pull requests are always welcome.
 
 The configuration file will be rendered through ERB before being parsed as
 YAML. This can be useful for avoiding repetitive configuration across multiple
-prefixes or datacenters, eg:
+prefixes or regions, eg:
 
     sync:
-    <% %w( dc1 dc2 dc3 ).each do |dc| %>
+    <% %w( us-east-1 us-west-2 ).each do |region| %>
       - name: <%= dc %>:myapp-private
         prefix: private/myapp
-        datacenter: <%= dc %>
-        path: consul/<%= dc %>/private
+        region: <%= region %>
+        path: path/<%= region %>/private
         delete: true
     <% end %>
 
@@ -366,31 +321,6 @@ You can also choose to enable ERB parsing for local content as well, by setting
 
 Paramsync may be partially configured using environment variables:
 * `PARAMSYNC_VERBOSE` - set this variable to any value to enable verbose mode
-* `CONSUL_HTTP_TOKEN` or `CONSUL_TOKEN` - use one of these variables (priority
-  is given to `CONSUL_HTTP_TOKEN`) to set an explicit Consul token to use when
-  interacting with the API. Otherwise, by default the agent's `acl_token`
-  setting is used implicitly.
-* `VAULT_ADDR` and `VAULT_TOKEN` - if `consul.token_source` is set to `vault`
-  or `vault.<label>`, these variables are used to authenticate to Vault. If
-  `VAULT_TOKEN` is not set, Paramsync will attempt to read a token from
-  `~/.vault-token`. If the `url` field is set, it will take priority over the
-  `VAULT_ADDR` environment variable, but one or the other must be set.
-
-
-## Roadmap
-
-Paramsync is relatively new software. There's more to be done. Some ideas, which
-may or may not ever be implemented:
-
-* Using CAS to verify the key has not changed in the interim before updating/deleting
-* Options for file target pull-mode rendering
-* Automation support for running non-interactively
-* Pattern- and prefix-based exclusions
-* Logging of changes to files, syslog, other services
-* Other commands to assist in managing Consul KV sets
-* Git awareness (branches, commit state, etc)
-* Automated tests
-* Submitting changes in batches using transactions
 
 
 ## Contributing

@@ -2,14 +2,14 @@
 
 class Paramsync
   class SyncTarget
-    VALID_CONFIG_KEYS = %w( name type datacenter prefix path exclude chomp delete erb_enabled )
-    attr_accessor :name, :type, :datacenter, :prefix, :path, :exclude, :consul, :erb_enabled, :consul_url, :token_source, :call_external_apis
+    VALID_CONFIG_KEYS = %w( name type region prefix path exclude chomp delete erb_enabled account )
+    attr_accessor :name, :type, :region, :prefix, :path, :exclude, :erb_enabled, :account, :ssm
 
-    REQUIRED_CONFIG_KEYS = %w( prefix )
+    REQUIRED_CONFIG_KEYS = %w( prefix region account )
     VALID_TYPES = [ :dir, :file ]
     DEFAULT_TYPE = :dir
 
-    def initialize(config:, consul_url:, token_source:, base_dir:, call_external_apis: true)
+    def initialize(config:, account:, base_dir:)
       if not config.is_a? Hash
         raise Paramsync::ConfigFileInvalid.new("Sync target entries must be specified as hashes")
       end
@@ -23,8 +23,9 @@ class Paramsync
       end
 
       @base_dir = base_dir
-      self.datacenter = config['datacenter']
+      self.region = config['region']
       self.prefix = config['prefix']
+      self.account = config['account']
       self.path = config['path'] || config['prefix']
       self.name = config['name']
       self.type = (config['type'] || Paramsync::SyncTarget::DEFAULT_TYPE).to_sym
@@ -46,15 +47,14 @@ class Paramsync
         @do_delete = false
       end
 
-      self.call_external_apis = call_external_apis
-      self.consul_url = consul_url
-      self.token_source = token_source
-      token = if self.call_external_apis
-                self.token_source.consul_token
-              else
-                ""
-              end
-      self.consul = Imperium::KV.new(Imperium::Configuration.new(url: self.consul_url, token: token))
+      self.ssm = Aws::SSM::Client.new(
+        region: region,
+        credentials: Aws::AssumeRoleCredentials.new(
+          client: Aws::STS::Client.new(region: region),
+          role_arn: account,
+          role_session_name: "paramsync"
+        ),
+      )
       self.erb_enabled = config['erb_enabled']
     end
 
@@ -72,9 +72,9 @@ class Paramsync
 
     def description(mode = :push)
       if mode == :pull
-        "#{self.name.nil? ? '' : self.name.bold + "\n"}#{'consul'.cyan}:#{self.datacenter.green}:#{self.prefix} => #{'local'.blue}:#{self.path}"
+        "#{self.name.nil? ? '' : self.name.bold + "\n"}#{'ssm'.cyan}:#{self.region.green}:#{self.prefix} => #{'local'.blue}:#{self.path}"
       else
-        "#{self.name.nil? ? '' : self.name.bold + "\n"}#{'local'.blue}:#{self.path} => #{'consul'.cyan}:#{self.datacenter.green}:#{self.prefix}"
+        "#{self.name.nil? ? '' : self.name.bold + "\n"}#{'local'.blue}:#{self.path} => #{'ssm'.cyan}:#{self.region.green}:#{self.prefix}"
       end
     end
 
@@ -110,7 +110,15 @@ class Paramsync
           @local_items = local_items_from_file
         end
       end
-
+      @local_items.transform_values! do |val|
+        is_kms = val.bytes[0] == 0x01
+        if is_kms
+          val = Paramsync.config.kms_client.decrypt(
+            ciphertext_blob: val
+          ).plaintext
+        end
+        [val, is_kms]
+      end
       @local_items
     end
 
@@ -141,11 +149,15 @@ class Paramsync
       return @remote_items if not @remote_items.nil?
       @remote_items = {}
 
-      resp = self.consul.get(self.prefix, :recurse, dc: self.datacenter)
+      resp = self.ssm.get_parameters_by_path(
+        path: self.prefix,
+        recursive: true,
+        with_decryption: true
+      )
 
       return @remote_items if resp.values.nil?
-      Paramsync::Util.flatten_hash(resp.values).each_pair do |key, value|
-        @remote_items[key.join("/")] = (value.nil? ? '' : value)
+      resp.flat_map(&:parameters).each do |param|
+        @remote_items[param.name.gsub(self.prefix, '')] = [(param.value.nil? ? '' : param.value), param.type == 'SecureString']
       end
 
       @remote_items
@@ -162,7 +174,7 @@ class Paramsync
         if k == '_' && !prefix.nil?
           new_key = prefix
         else
-          new_key = [prefix, k].compact.join('/')
+          new_key = [prefix, k].compact.join('.').gsub('/.', '/')
         end
 
         case v

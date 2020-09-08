@@ -1,15 +1,14 @@
 # This software is public domain. No rights are reserved. See LICENSE for more information.
 
 require 'erb'
-require 'imperium'
+require 'aws-sdk-kms'
+require 'aws-sdk-ssm'
 require 'fileutils'
 require 'ostruct'
-require 'vault'
 require 'yaml'
 
 require_relative 'paramsync/version'
 require_relative 'paramsync/config'
-require_relative 'paramsync/token_source'
 require_relative 'paramsync/diff'
 require_relative 'paramsync/sync_target'
 
@@ -23,23 +22,12 @@ class Paramsync
       @@config ||= Paramsync::Config.new
     end
 
-    def configure(path: nil, targets: nil, call_external_apis: true)
-      @@config = Paramsync::Config.new(path: path, targets: targets, call_external_apis: call_external_apis)
+    def configure(path: nil, targets: nil)
+      @@config = Paramsync::Config.new(path: path, targets: targets)
     end
 
     def configured?
       not @@config.nil?
-    end
-  end
-
-  class Util
-    class << self
-      # https://stackoverflow.com/questions/9647997/converting-a-nested-hash-into-a-flat-hash
-      def flatten_hash(h,f=[],g={})
-        return g.update({ f=>h }) unless h.is_a? Hash
-        h.each { |k,r| flatten_hash(r,f+[k],g) }
-        g
-      end
     end
   end
 end

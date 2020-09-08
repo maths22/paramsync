@@ -24,9 +24,8 @@ Gem::Specification.new do |s|
   s.bindir = 'bin'
   s.executables = ['paramsync']
 
-  s.add_dependency 'imperium', '~>0.3'
-  s.add_dependency 'diffy', '~>3.2'
-  s.add_dependency 'vault', '~>0.12'
+  s.add_dependency 'aws-sdk-ssm', '~> 1.89.0'
+  s.add_dependency 'aws-sdk-kms', '~> 1.37.0'
 
   s.add_development_dependency 'rspec', '~> 3.0'
 end

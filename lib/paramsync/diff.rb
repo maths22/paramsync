@@ -36,9 +36,9 @@ class Paramsync
             end
           end
 
-          consul_key = [@target.prefix, key].compact.join("/").squeeze("/")
+          ssm_key = [@target.prefix, key].compact.join("/").gsub('/.', '/').squeeze("/")
 
-          if @target.exclude.include?(key) or @target.exclude.include?(consul_key)
+          if @target.exclude.include?(key) or @target.exclude.include?(ssm_key)
             op = :ignore
             excluded = true
           end
@@ -61,7 +61,7 @@ class Paramsync
             relative_path: key,
             filename: filename,
             display_filename: display_filename,
-            consul_key: consul_key,
+            ssm_key: ssm_key,
             local_content: @local[key],
             remote_content: @remote[key],
           )
@@ -121,7 +121,7 @@ class Paramsync
 
       from_content_key, to_content_key, to_path_key, to_type_display_name =
         case @mode
-        when :push then [:local_content, :remote_content, :consul_key, "Keys"]
+        when :push then [:local_content, :remote_content, :ssm_key, "Keys"]
         when :pull
           case @target.type
           when :dir then [:remote_content, :local_content, :display_filename, "Files"]
@@ -133,17 +133,25 @@ class Paramsync
         case item.op
         when :create
           puts "CREATE".bold.green + " #{item[to_path_key]}"
+          if(item[from_content_key][1])
+            puts '[SECURE]'
+          end
           puts '-'*85
           # simulate diff but without complaints about line endings
-          item[from_content_key].each_line do |line|
+          item[from_content_key][0].each_line do |line|
             puts "+#{line.chomp}".green
           end
           puts '-'*85
 
         when :update
           puts "UPDATE".bold + " #{item[to_path_key]}"
+          if item[to_content_key][1] != item[from_content_key][1]
+            puts "#{item[to_content_key][1] ? '[SECURE]' : 'insecure'} => #{item[from_content_key][1] ? '[SECURE]' : 'insecure'}"
+          end
           puts '-'*85
-          puts Diffy::Diff.new(item[to_content_key], item[from_content_key]).to_s(:color)
+          if item[to_content_key][0] != item[from_content_key][0]
+            puts Diffy::Diff.new(item[to_content_key][0], item[from_content_key][0]).to_s(:color)
+          end
           puts '-'*85
 
         when :delete
@@ -151,7 +159,7 @@ class Paramsync
             puts "DELETE".bold.red + " #{item[to_path_key]}"
             puts '-'*85
             # simulate diff but without complaints about line endings
-            item[to_content_key].each_line do |line|
+            item[to_content_key][0].each_line do |line|
               puts "-#{line.chomp}".red
             end
             puts '-'*85

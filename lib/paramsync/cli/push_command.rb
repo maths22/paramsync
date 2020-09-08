@@ -34,35 +34,44 @@ class Paramsync
             diff.items_to_change.each do |item|
               case item.op
               when :create
-                print "CREATE".bold.green + " " + item.consul_key
-                resp = target.consul.put(item.consul_key, item.local_content, dc: target.datacenter)
-                if resp.success?
+                print "CREATE".bold.green + " " + item.ssm_key
+                begin
+                  target.ssm.put_parameter(
+                    name: item.ssm_key,
+                    value: item.local_content[0],
+                    type: item.local_content[1] ? 'SecureString' : 'String'
+                  )
                   puts "   OK".bold
-                else
+                rescue
                   puts "   ERROR".bold.red
                 end
 
               when :update
-                print "UPDATE".bold.blue + " " + item.consul_key
-                resp = target.consul.put(item.consul_key, item.local_content, dc: target.datacenter)
-                if resp.success?
+                print "UPDATE".bold.blue + " " + item.ssm_key
+                begin
+                  target.ssm.put_parameter(
+                    name: item.ssm_key,
+                    value: item.local_content[0],
+                    type: item.local_content[1] ? 'SecureString' : 'String',
+                    overwrite: true
+                  )
                   puts "   OK".bold
-                else
+                rescue
                   puts "   ERROR".bold.red
                 end
 
               when :delete
-                print "DELETE".bold.red + " " + item.consul_key
-                resp = target.consul.delete(item.consul_key, dc: target.datacenter)
-                if resp.success?
+                print "DELETE".bold.red + " " + item.ssm_key
+                begin
+                  target.ssm.delete_parameter(name: item.ssm_key)
                   puts "   OK".bold
-                else
+                rescue
                   puts "   ERROR".bold.red
                 end
 
               else
                 if Paramsync.config.verbose?
-                  STDERR.puts "paramsync: WARNING: unexpected operation '#{item.op}' for #{item.consul_key}"
+                  STDERR.puts "paramsync: WARNING: unexpected operation '#{item.op}' for #{item.ssm_key}"
                   next
                 end
 

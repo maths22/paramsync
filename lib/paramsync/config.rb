@@ -5,23 +5,14 @@ require 'ostruct'
 class Paramsync
   class ConfigFileNotFound < RuntimeError; end
   class ConfigFileInvalid < RuntimeError; end
-  class ConsulTokenRequired < RuntimeError; end
-  class VaultConfigInvalid < RuntimeError; end
 
   class Config
     CONFIG_FILENAMES = %w( paramsync.yml )
-    VALID_CONFIG_KEYS = %w( sync consul vault paramsync )
-    VALID_VAULT_KEY_PATTERNS = [ %r{^vault\.[A-Za-z][A-Za-z0-9_-]*$}, %r{^vault$} ]
-    VALID_CONFIG_KEY_PATTERNS = VALID_VAULT_KEY_PATTERNS
-    VALID_CONSUL_CONFIG_KEYS = %w( url datacenter token_source )
-    VALID_VAULT_CONFIG_KEYS = %w( url consul_token_path consul_token_field )
+    VALID_CONFIG_KEYS = %w( sync ssm paramsync )
+    VALID_SSM_CONFIG_KEYS = %w( accounts kms )
     VALID_PARAMSYNC_CONFIG_KEYS = %w( verbose chomp delete color )
-    DEFAULT_CONSUL_URL = "http://localhost:8500"
-    DEFAULT_CONSUL_TOKEN_SOURCE = "none"
-    DEFAULT_VAULT_CONSUL_TOKEN_FIELD = "token"
 
-    attr_accessor :config_file, :base_dir, :consul_url, :default_consul_token_source,
-      :sync_targets, :target_allowlist, :call_external_apis, :consul_token_sources
+    attr_accessor :config_file, :base_dir, :sync_targets, :target_allowlist, :ssm_accounts, :kms_client, :kms_key
 
     class << self
       # discover the nearest config file
@@ -37,18 +28,9 @@ class Paramsync
 
         dir == "/" ? nil : self.discover(dir: File.dirname(dir))
       end
-
-      def only_valid_config_keys!(keylist)
-        (keylist - VALID_CONFIG_KEYS).each do |key|
-          if not VALID_CONFIG_KEY_PATTERNS.find { |pattern| key =~ pattern }
-            raise Paramsync::ConfigFileInvalid.new("'#{key}' is not a valid configuration key")
-          end
-        end
-        true
-      end
     end
 
-    def initialize(path: nil, targets: nil, call_external_apis: true)
+    def initialize(path: nil, targets: nil)
       if path.nil? or File.directory?(path)
         self.config_file = Paramsync::Config.discover(dir: path)
       elsif File.exist?(path)
@@ -64,7 +46,6 @@ class Paramsync
       self.config_file = File.expand_path(self.config_file)
       self.base_dir = File.dirname(self.config_file)
       self.target_allowlist = targets
-      self.call_external_apis = call_external_apis
       parse!
     end
 
@@ -84,12 +65,6 @@ class Paramsync
       @use_color
     end
 
-    def parse_vault_token_sources!(raw)
-      raw.keys.select { |key| VALID_VAULT_KEY_PATTERNS.find { |pattern| key =~ pattern } }.collect do |key|
-        [key, Paramsync::VaultTokenSource.new(name: key, config: raw[key])]
-      end.to_h
-    end
-
     def parse!
       raw = {}
       begin
@@ -107,32 +82,16 @@ class Paramsync
         raise Paramsync::ConfigFileInvalid.new("Config file must form a hash")
       end
 
-      Paramsync::Config.only_valid_config_keys!(raw.keys)
-
-      self.consul_token_sources = {
-        "none" => Paramsync::PassiveTokenSource.new,
-        "env" => Paramsync::EnvTokenSource.new,
-      }.merge(
-        self.parse_vault_token_sources!(raw),
-      )
-
-      raw['consul'] ||= {}
-      if not raw['consul'].is_a? Hash
-        raise Paramsync::ConfigFileInvalid.new("'consul' must be a hash")
+      raw['ssm'] ||= {}
+      if not raw['ssm'].is_a? Hash
+        raise Paramsync::ConfigFileInvalid.new("'ssm' must be a hash")
       end
 
-      if (raw['consul'].keys - VALID_CONSUL_CONFIG_KEYS) != []
-        raise Paramsync::ConfigFileInvalid.new("Only the following keys are valid in the consul config: #{VALID_CONSUL_CONFIG_KEYS.join(", ")}")
+      if (raw['ssm'].keys - VALID_SSM_CONFIG_KEYS) != []
+        raise Paramsync::ConfigFileInvalid.new("Only the following keys are valid in the ssm config: #{VALID_SSM_CONFIG_KEYS.join(", ")}")
       end
 
-      self.consul_url = raw['consul']['url'] || DEFAULT_CONSUL_URL
-      srcname = raw['consul']['token_source'] || DEFAULT_CONSUL_TOKEN_SOURCE
-      self.default_consul_token_source =
-        self.consul_token_sources[srcname].tap do |src|
-          if src.nil?
-            raise Paramsync::ConfigFileInvalid.new("Consul token source '#{consul_token_source}' is not defined")
-          end
-        end
+      self.ssm_accounts = raw['ssm']['accounts']
 
       raw['paramsync'] ||= {}
       if not raw['paramsync'].is_a? Hash
@@ -171,23 +130,30 @@ class Paramsync
         @use_color = true
       end
 
+      if raw['ssm'].has_key?('kms')
+        self.kms_client = Aws::KMS::Client.new(
+          region: raw['ssm']['kms']['region'],
+          credentials: Aws::AssumeRoleCredentials.new(
+            client: Aws::STS::Client.new(region: raw['ssm']['kms']['region']),
+            role_arn: raw['ssm']['kms']['role'],
+            role_session_name: "paramsync"
+          ),
+        )
+        self.kms_key = raw['ssm']['kms']['arn']
+      end
+
       self.sync_targets = []
       raw['sync'].each do |target|
-        token_source = self.default_consul_token_source
         if target.is_a? Hash
-          target['datacenter'] ||= raw['consul']['datacenter']
           if target['chomp'].nil?
             target['chomp'] = self.chomp?
           end
           if target['delete'].nil?
             target['delete'] = self.delete?
           end
-          if not target['token_source'].nil?
-            token_source = self.consul_token_sources[target['token_source']]
-            if token_source.nil?
-              raise Paramsync::ConfigFileInvalid.new("Consul token source '#{target['token_source']}' is not defined")
-            end
-            target.delete('token_source')
+          account = self.ssm_accounts[target['account']]
+          if account.nil?
+            raise Paramsync::ConfigFileInvalid.new("Account '#{target['account']}' is not defined")
           end
         end
 
@@ -199,13 +165,7 @@ class Paramsync
           next if not self.target_allowlist.include?(target['name'])
         end
 
-        # only try to fetch consul tokens if we are actually going to do work
-        consul_token = if self.call_external_apis
-                         token_source.consul_token
-                       else
-                         ""
-                       end
-        self.sync_targets << Paramsync::SyncTarget.new(config: target, consul_url: consul_url, token_source: token_source, base_dir: self.base_dir, call_external_apis: self.call_external_apis)
+        self.sync_targets << Paramsync::SyncTarget.new(config: target, account: account['role'], base_dir: self.base_dir)
       end
     end
   end
