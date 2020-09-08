@@ -2,19 +2,19 @@
 
 require 'spec_helper'
 
-RSpec.describe Constancy::SyncTarget do
+RSpec.describe Paramsync::SyncTarget do
   describe '#local_items' do
     context 'using a yml file with deeply nested hashes' do
       let(:tgt) {
-        Constancy::SyncTarget.new(
+        Paramsync::SyncTarget.new(
           base_dir: FIXTURE_DIR,
           config: {
             'type'   => 'file',
             'path'   => "nested_hashes.yml",
             'prefix' => 'config/nested'
           },
-          consul_url: Constancy::Config::DEFAULT_CONSUL_URL,
-          token_source: Constancy::PassiveTokenSource.new,
+          consul_url: Paramsync::Config::DEFAULT_CONSUL_URL,
+          token_source: Paramsync::PassiveTokenSource.new,
         )
       }
 
@@ -32,7 +32,7 @@ RSpec.describe Constancy::SyncTarget do
 
   context 'using a yml file with deeply nested hashes and erb' do
     let(:tgt) {
-      Constancy::SyncTarget.new(
+      Paramsync::SyncTarget.new(
         base_dir: FIXTURE_DIR,
         config: {
           'type'   => 'file',
@@ -40,8 +40,8 @@ RSpec.describe Constancy::SyncTarget do
           'prefix' => 'config/nested',
           'erb_enabled' => true
         },
-        consul_url: Constancy::Config::DEFAULT_CONSUL_URL,
-        token_source: Constancy::PassiveTokenSource.new,
+        consul_url: Paramsync::Config::DEFAULT_CONSUL_URL,
+        token_source: Paramsync::PassiveTokenSource.new,
       )
     }
 

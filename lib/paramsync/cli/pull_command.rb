@@ -1,14 +1,14 @@
 # This software is public domain. No rights are reserved. See LICENSE for more information.
 
-class Constancy
+class Paramsync
   class CLI
     class PullCommand
       class << self
         def run(args)
-          Constancy::CLI.configure
+          Paramsync::CLI.configure
           STDOUT.sync = true
 
-          Constancy.config.sync_targets.each do |target|
+          Paramsync.config.sync_targets.each do |target|
             diff = target.diff(:pull)
 
             diff.print_report
@@ -46,7 +46,7 @@ class Constancy
               begin
                 FileUtils.mkdir_p(File.dirname(item.filename))
                 # attempt to write atomically-ish
-                tmpfile = item.filename + ".constancy-tmp"
+                tmpfile = item.filename + ".paramsync-tmp"
                 File.open(tmpfile, "w") do |f|
                   f.write(item.remote_content)
                 end
@@ -61,7 +61,7 @@ class Constancy
               print "UPDATE".bold.blue + " " + item.display_filename
               begin
                 # attempt to write atomically-ish
-                tmpfile = item.filename + ".constancy-tmp"
+                tmpfile = item.filename + ".paramsync-tmp"
                 File.open(tmpfile, "w") do |f|
                   f.write(item.remote_content)
                 end
@@ -83,8 +83,8 @@ class Constancy
               end
 
             else
-              if Constancy.config.verbose?
-                STDERR.puts "constancy: WARNING: unexpected operation '#{item.op}' for #{item.display_filename}"
+              if Paramsync.config.verbose?
+                STDERR.puts "paramsync: WARNING: unexpected operation '#{item.op}' for #{item.display_filename}"
                 next
               end
 
@@ -96,7 +96,7 @@ class Constancy
           # build and write the file
           filename_list = diff.items_to_change.collect(&:filename).uniq
           if filename_list.length != 1
-            raise Constancy::InternalError.new("Multiple filenames found for a 'file' type sync target. Something has gone wrong.")
+            raise Paramsync::InternalError.new("Multiple filenames found for a 'file' type sync target. Something has gone wrong.")
           end
           filename = filename_list.first
           display_filename = filename.trim_path
@@ -110,7 +110,7 @@ class Constancy
           begin
             FileUtils.mkdir_p(File.dirname(filename))
             # attempt to write atomically-ish
-            tmpfile = filename + ".constancy-tmp"
+            tmpfile = filename + ".paramsync-tmp"
             File.open(tmpfile, "w") do |f|
               f.write(diff.final_items.to_yaml)
             end

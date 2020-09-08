@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    constancy (0.3.0)
+    paramsync (0.3.0)
       diffy (~> 3.2)
       imperium (~> 0.3)
       vault (~> 0.12)
@@ -39,7 +39,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  constancy!
+  paramsync!
   rspec (~> 3.0)
 
 BUNDLED WITH

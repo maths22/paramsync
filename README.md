@@ -1,14 +1,14 @@
-# constancy
+# paramsync
 
-Constancy is a simple, straightforward CLI tool for synchronizing data from the
+Paramsync is a simple, straightforward CLI tool for synchronizing data from the
 filesystem to the Consul KV store and vice-versa.
 
 ## Basic Usage
 
-Run `constancy check` to see what differences exist, and `constancy push` to
+Run `paramsync check` to see what differences exist, and `paramsync push` to
 synchronize the changes from the filesystem to Consul.
 
-    $ constancy check
+    $ paramsync check
     =====================================================================================
     myapp-private
     local:consul/private => consul:dc1:private/myapp
@@ -32,7 +32,7 @@ synchronize the changes from the filesystem to Consul.
 You can also limit your command to specific synchronization targets by using
 the `--target` flag:
 
-    $ constancy push --target myapp-config
+    $ paramsync push --target myapp-config
     =====================================================================================
     myapp-config
     local:consul/config => consul:dc1:config/myapp
@@ -52,22 +52,22 @@ the `--target` flag:
 
     UPDATE config/myapp/prod/ip-allowlist.json   OK
 
-Run `constancy --help` for additional options and commands.
+Run `paramsync --help` for additional options and commands.
 
 ## Pull Mode
 
-Constancy can also sync _from_ Consul to the local filesystem. This can be
+Paramsync can also sync _from_ Consul to the local filesystem. This can be
 particularly useful for seeding a git repo with the current contents of a Consul
 KV database.
 
-Run `constancy check --pull` to get a summary of changes, and `constancy pull`
+Run `paramsync check --pull` to get a summary of changes, and `paramsync pull`
 to actually sync the changes to the local filesystem. Additional arguments such
 as `--target <name>` work in pull mode as well.
 
 
 ## Configuration
 
-Constancy will automatically configure itself using the first `constancy.yml`
+Paramsync will automatically configure itself using the first `paramsync.yml`
 file it comes across when searching backwards through the directory tree from
 the current working directory. So, typically you may wish to place the config
 file in the root of your git repository or the base directory of your config
@@ -80,15 +80,15 @@ argument.
 ### Configuration file structure
 
 The configuration file is a Hash represented in YAML format with three possible
-top-level keys: `constancy`, `consul`, and `sync`. The `constancy` section sets
+top-level keys: `paramsync`, `consul`, and `sync`. The `paramsync` section sets
 global defaults and app options. The `consul` section specifies the URL to the
 Consul REST API endpoint. And the `sync` section lists the directories and
 Consul prefixes you wish to synchronize. Only the `sync` section is strictly
-required. An example `constancy.yml` is below including explanatory comments:
+required. An example `paramsync.yml` is below including explanatory comments:
 
-    # constancy.yml
+    # paramsync.yml
 
-    constancy:
+    paramsync:
       # verbose - defaults to `false`
       #   Set this to `true` for more verbose output.
       verbose: false
@@ -141,7 +141,7 @@ required. An example `constancy.yml` is below including explanatory comments:
       #   The Vault URI path to the Consul token - can be either the Consul
       #   dynamic backend or a KV endpoint with a static value. If the dynamic
       #   backend is used, the lease will be automatically revoked when
-      #   constancy exits.
+      #   paramsync exits.
       consul_token_path: consul/creds/my-role
 
       # consul_token_field - name of the field in which the Consul token is stored
@@ -185,10 +185,10 @@ required. An example `constancy.yml` is below including explanatory comments:
       #       or 'vault.<label>'.
       #     delete - Whether or not to delete remote keys that do not exist
       #       in the local filesystem. This inherits the setting from the
-      #       `constancy` section, or if not specified, defaults to `false`.
+      #       `paramsync` section, or if not specified, defaults to `false`.
       #     chomp - Whether or not to chomp a single newline character off
       #       the contents of local files before synchronizing to Consul.
-      #       This inherits the setting from the `constancy` section, or if
+      #       This inherits the setting from the `paramsync` section, or if
       #       not specified, defaults to `true`.
       #     exclude - An array of Consul KV paths to exclude from the
       #       sync process. These exclusions will be noted in output if the
@@ -221,7 +221,7 @@ required. An example `constancy.yml` is below including explanatory comments:
         delete: true
         erb_enabled: true
 
-You can run `constancy config` to get a summary of the defined configuration
+You can run `paramsync config` to get a summary of the defined configuration
 and to double-check config syntax.
 
 ### File sync targets
@@ -250,7 +250,7 @@ If the file `yourapp.yml` has the following content:
         "enabled": true
       }
 
-Then `constancy push` will attempt to create and/or update the following keys
+Then `paramsync push` will attempt to create and/or update the following keys
 with the corresponding content from `yourapp.yml`:
 
 | Key  | Value  |
@@ -302,7 +302,7 @@ This file target content would correspond to the following values, when pushed:
 | `config/yourapp/prod/redis/port` | `6380` |
 | `config/yourapp/prod/redis/host` | `cache.myproject.example.com` |
 
-A `constancy pull` operation against a file type target will work in reverse,
+A `paramsync pull` operation against a file type target will work in reverse,
 and pull values from any keys under `config/yourapp/` into the file
 `yourapp.yml`, overwriting whatever values are there.
 
@@ -318,7 +318,7 @@ to force the YAML parser to interpret it as a string.
 
 Against a file target, the structure of the local file can vary in a number
 of ways while still producing the same remote structure. Thus, in pull mode,
-Constancy must necessarily choose one particular rendering format, and will not
+Paramsync must necessarily choose one particular rendering format, and will not
 be able to retain the exact structure of the local file if you alternate push
 and pull operations.
 
@@ -333,7 +333,7 @@ to a local file:
 * The document structure will be that of a flat hash will fully-specified
   relative paths as the keys.
 
-Future versions of Constancy may provide options to modify the behavior for pull
+Future versions of Paramsync may provide options to modify the behavior for pull
 operations on a per-target basis. Pull requests are always welcome.
 
 
@@ -352,7 +352,7 @@ prefixes or datacenters, eg:
         delete: true
     <% end %>
 
-It's a good idea to sanity-check your ERB by running `constancy config` after
+It's a good idea to sanity-check your ERB by running `paramsync config` after
 making any changes.
 
 
@@ -364,22 +364,22 @@ You can also choose to enable ERB parsing for local content as well, by setting
 
 ### Environment configuration
 
-Constancy may be partially configured using environment variables:
-* `CONSTANCY_VERBOSE` - set this variable to any value to enable verbose mode
+Paramsync may be partially configured using environment variables:
+* `PARAMSYNC_VERBOSE` - set this variable to any value to enable verbose mode
 * `CONSUL_HTTP_TOKEN` or `CONSUL_TOKEN` - use one of these variables (priority
   is given to `CONSUL_HTTP_TOKEN`) to set an explicit Consul token to use when
   interacting with the API. Otherwise, by default the agent's `acl_token`
   setting is used implicitly.
 * `VAULT_ADDR` and `VAULT_TOKEN` - if `consul.token_source` is set to `vault`
   or `vault.<label>`, these variables are used to authenticate to Vault. If
-  `VAULT_TOKEN` is not set, Constancy will attempt to read a token from
+  `VAULT_TOKEN` is not set, Paramsync will attempt to read a token from
   `~/.vault-token`. If the `url` field is set, it will take priority over the
   `VAULT_ADDR` environment variable, but one or the other must be set.
 
 
 ## Roadmap
 
-Constancy is relatively new software. There's more to be done. Some ideas, which
+Paramsync is relatively new software. There's more to be done. Some ideas, which
 may or may not ever be implemented:
 
 * Using CAS to verify the key has not changed in the interim before updating/deleting

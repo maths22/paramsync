@@ -1,19 +1,19 @@
 # This software is public domain. No rights are reserved. See LICENSE for more information.
 
-class Constancy
+class Paramsync
   class CLI
     class ConfigCommand
       class << self
         def run
-          Constancy::CLI.configure(call_external_apis: false)
+          Paramsync::CLI.configure(call_external_apis: false)
 
-          puts " Config file: #{Constancy.config.config_file}"
-          puts "  Consul URL: #{Constancy.config.consul_url}"
-          puts "     Verbose: #{Constancy.config.verbose?.to_s.bold}"
+          puts " Config file: #{Paramsync.config.config_file}"
+          puts "  Consul URL: #{Paramsync.config.consul_url}"
+          puts "     Verbose: #{Paramsync.config.verbose?.to_s.bold}"
           puts
           puts " Defined Consul Token Sources:"
-          default_src_name = Constancy.config.default_consul_token_source.name
-          srcs = Constancy.config.consul_token_sources
+          default_src_name = Paramsync.config.default_consul_token_source.name
+          srcs = Paramsync.config.consul_token_sources
           ( %w( none env ) + ( srcs.keys.sort - %w( none env ) ) ).each do |name|
             puts
             puts "   #{name}:#{ default_src_name == name ? " (DEFAULT)".bold : ""}"
@@ -30,12 +30,12 @@ class Constancy
           end
           puts
           puts "Sync target defaults:"
-          puts "  Chomp trailing newlines from local files: #{Constancy.config.chomp?.to_s.bold}"
-          puts "  Delete remote keys with no local file: #{Constancy.config.delete?.to_s.bold}"
+          puts "  Chomp trailing newlines from local files: #{Paramsync.config.chomp?.to_s.bold}"
+          puts "  Delete remote keys with no local file: #{Paramsync.config.delete?.to_s.bold}"
           puts
           puts "Sync targets:"
 
-          Constancy.config.sync_targets.each do |target|
+          Paramsync.config.sync_targets.each do |target|
             if target.name
               puts "* #{target.name.bold}"
               print ' '

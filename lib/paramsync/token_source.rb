@@ -1,6 +1,6 @@
 # This software is public domain. No rights are reserved. See LICENSE for more information.
 
-class Constancy
+class Paramsync
   # use env vars if defined, but otherwise just return an empty string
   class PassiveTokenSource
     def name
@@ -21,7 +21,7 @@ class Constancy
     def consul_token
       consul_token = ENV['CONSUL_HTTP_TOKEN'] || ENV['CONSUL_TOKEN']
       if consul_token.nil? or consul_token == ""
-        raise Constancy::ConsulTokenRequired.new("Consul token_source was set to 'env' but neither CONSUL_TOKEN nor CONSUL_HTTP_TOKEN is set")
+        raise Paramsync::ConsulTokenRequired.new("Consul token_source was set to 'env' but neither CONSUL_TOKEN nor CONSUL_HTTP_TOKEN is set")
       end
     end
   end
@@ -34,22 +34,22 @@ class Constancy
 
       config ||= {}
       if not config.is_a? Hash
-        raise Constancy::ConfigFileInvalid.new("'#{name}' must be a hash")
+        raise Paramsync::ConfigFileInvalid.new("'#{name}' must be a hash")
       end
 
-      if (config.keys - Constancy::Config::VALID_VAULT_CONFIG_KEYS) != []
-        raise Constancy::ConfigFileInvalid.new("Only the following keys are valid in a vault config: #{Constancy::Config::VALID_VAULT_CONFIG_KEYS.join(", ")}")
+      if (config.keys - Paramsync::Config::VALID_VAULT_CONFIG_KEYS) != []
+        raise Paramsync::ConfigFileInvalid.new("Only the following keys are valid in a vault config: #{Paramsync::Config::VALID_VAULT_CONFIG_KEYS.join(", ")}")
       end
 
       self.consul_token_path = config['consul_token_path']
       if self.consul_token_path.nil? or self.consul_token_path == ""
-        raise Constancy::ConfigFileInvalid.new("consul_token_path must be specified to use '#{name}' as a token source")
+        raise Paramsync::ConfigFileInvalid.new("consul_token_path must be specified to use '#{name}' as a token source")
       end
 
       # prioritize the config file over environment variables for vault address
       self.vault_addr = config['url'] || ENV['VAULT_ADDR']
       if self.vault_addr.nil? or self.vault_addr == ""
-        raise Constancy::VaultConfigInvalid.new("Vault address must be set in #{name}.vault_addr or VAULT_ADDR")
+        raise Paramsync::VaultConfigInvalid.new("Vault address must be set in #{name}.vault_addr or VAULT_ADDR")
       end
 
       self.vault_token = ENV['VAULT_TOKEN']
@@ -58,11 +58,11 @@ class Constancy
         if File.exist?(vault_token_file)
           self.vault_token = File.read(vault_token_file)
         else
-          raise Constancy::VaultConfigInvalid.new("Vault token must be set in ~/.vault-token or VAULT_TOKEN")
+          raise Paramsync::VaultConfigInvalid.new("Vault token must be set in ~/.vault-token or VAULT_TOKEN")
         end
       end
 
-      self.consul_token_field = config['consul_token_field'] || Constancy::Config::DEFAULT_VAULT_CONSUL_TOKEN_FIELD
+      self.consul_token_field = config['consul_token_field'] || Paramsync::Config::DEFAULT_VAULT_CONSUL_TOKEN_FIELD
     end
 
     def consul_token
@@ -81,11 +81,11 @@ class Constancy
           end
 
         rescue => e
-          raise Constancy::VaultConfigInvalid.new("Are you logged in to Vault?\n\n#{e}")
+          raise Paramsync::VaultConfigInvalid.new("Are you logged in to Vault?\n\n#{e}")
         end
 
         if @consul_token.nil? or @consul_token == ""
-          raise Constancy::VaultConfigInvalid.new("Could not acquire a Consul token from Vault")
+          raise Paramsync::VaultConfigInvalid.new("Could not acquire a Consul token from Vault")
         end
       end
       @consul_token

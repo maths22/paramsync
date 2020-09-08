@@ -31,8 +31,8 @@
 
 ## 0.2.2 (December 25, 2018)
 
-* Add Consul token source and Vault config details to 'constancy config' output.
-* Don't call external APIs (ie Vault) for 'constancy config' command.
+* Add Consul token source and Vault config details to 'paramsync config' output.
+* Don't call external APIs (ie Vault) for 'paramsync config' command.
 
 ## 0.2.1 (December 25, 2018)
 

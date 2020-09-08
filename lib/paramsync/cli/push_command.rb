@@ -1,14 +1,14 @@
 # This software is public domain. No rights are reserved. See LICENSE for more information.
 
-class Constancy
+class Paramsync
   class CLI
     class PushCommand
       class << self
         def run(args)
-          Constancy::CLI.configure
+          Paramsync::CLI.configure
           STDOUT.sync = true
 
-          Constancy.config.sync_targets.each do |target|
+          Paramsync.config.sync_targets.each do |target|
             diff = target.diff(:push)
 
             diff.print_report
@@ -61,8 +61,8 @@ class Constancy
                 end
 
               else
-                if Constancy.config.verbose?
-                  STDERR.puts "constancy: WARNING: unexpected operation '#{item.op}' for #{item.consul_key}"
+                if Paramsync.config.verbose?
+                  STDERR.puts "paramsync: WARNING: unexpected operation '#{item.op}' for #{item.consul_key}"
                   next
                 end
 

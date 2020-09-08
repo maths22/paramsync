@@ -18,7 +18,7 @@ class MockTarget
   end
 end
 
-RSpec.describe Constancy::Diff do
+RSpec.describe Paramsync::Diff do
   let(:default_target) { MockTarget.new }
   let(:sets) {
     {
@@ -47,7 +47,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:push_no_changes) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:base],
       remote: sets[:base],
@@ -56,7 +56,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:push_create_one) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:addition],
       remote: sets[:base],
@@ -65,7 +65,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:push_create_many) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:addition],
       remote: sets[:empty],
@@ -74,7 +74,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:push_update_one) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:update],
       remote: sets[:base],
@@ -83,7 +83,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:push_delete_one) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:deletion],
       remote: sets[:base],
@@ -92,7 +92,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:push_delete_all) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:empty],
       remote: sets[:base],
@@ -101,7 +101,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:push_multi_change) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:multi_change],
       remote: sets[:base],
@@ -110,7 +110,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:pull_no_changes) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:base],
       remote: sets[:base],
@@ -119,7 +119,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:pull_create_one) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:base],
       remote: sets[:addition],
@@ -128,7 +128,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:pull_create_many) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:empty],
       remote: sets[:addition],
@@ -137,7 +137,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:pull_update_one) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:base],
       remote: sets[:update],
@@ -146,7 +146,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:pull_delete_one) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:base],
       remote: sets[:deletion],
@@ -155,7 +155,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:pull_delete_all) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:base],
       remote: sets[:empty],
@@ -164,7 +164,7 @@ RSpec.describe Constancy::Diff do
   }
 
   let(:pull_multi_change) {
-    Constancy::Diff.new(
+    Paramsync::Diff.new(
       target: default_target,
       local: sets[:base],
       remote: sets[:multi_change],

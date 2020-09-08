@@ -7,24 +7,24 @@ require 'ostruct'
 require 'vault'
 require 'yaml'
 
-require_relative 'constancy/version'
-require_relative 'constancy/config'
-require_relative 'constancy/token_source'
-require_relative 'constancy/diff'
-require_relative 'constancy/sync_target'
+require_relative 'paramsync/version'
+require_relative 'paramsync/config'
+require_relative 'paramsync/token_source'
+require_relative 'paramsync/diff'
+require_relative 'paramsync/sync_target'
 
-class Constancy
+class Paramsync
   class InternalError < RuntimeError; end
 
   class << self
     @@config = nil
 
     def config
-      @@config ||= Constancy::Config.new
+      @@config ||= Paramsync::Config.new
     end
 
     def configure(path: nil, targets: nil, call_external_apis: true)
-      @@config = Constancy::Config.new(path: path, targets: targets, call_external_apis: call_external_apis)
+      @@config = Paramsync::Config.new(path: path, targets: targets, call_external_apis: call_external_apis)
     end
 
     def configured?
@@ -52,7 +52,7 @@ class String
   end
 
   def colorize(s,e=0)
-    Constancy.config.color? ? "\e[#{s}m#{self}\e[#{e}m" : self
+    Paramsync.config.color? ? "\e[#{s}m#{self}\e[#{e}m" : self
   end
 
   def red

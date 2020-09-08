@@ -1,6 +1,6 @@
 # This software is public domain. No rights are reserved. See LICENSE for more information.
 
-class Constancy
+class Paramsync
   class Diff
     def initialize(target:, local:, remote:, mode:)
       @target = target
@@ -112,7 +112,7 @@ class Constancy
       puts @target.description(@mode)
 
       puts "  Keys scanned: #{@diff.count}"
-      if Constancy.config.verbose?
+      if Paramsync.config.verbose?
         puts "  Keys ignored: #{self.items_to_ignore.count}"
         puts "  Keys in sync: #{self.items_to_noop.count}"
       end
@@ -156,23 +156,23 @@ class Constancy
             end
             puts '-'*85
           else
-            if Constancy.config.verbose?
+            if Paramsync.config.verbose?
               puts "IGNORE".bold + " #{item[to_path_key]}"
             end
           end
 
         when :ignore
-          if Constancy.config.verbose?
+          if Paramsync.config.verbose?
             puts "IGNORE".bold + " #{item[to_path_key]}"
           end
 
         when :noop
-          if Constancy.config.verbose?
+          if Paramsync.config.verbose?
             puts "NO-OP!".bold + " #{item[to_path_key]}"
           end
 
         else
-          if Constancy.config.verbose?
+          if Paramsync.config.verbose?
             STDERR.puts "WARNING: unexpected operation '#{item.op}' for #{item[to_path_key]}"
           end
 

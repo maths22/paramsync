@@ -2,20 +2,20 @@
 
 require 'ostruct'
 
-class Constancy
+class Paramsync
   class ConfigFileNotFound < RuntimeError; end
   class ConfigFileInvalid < RuntimeError; end
   class ConsulTokenRequired < RuntimeError; end
   class VaultConfigInvalid < RuntimeError; end
 
   class Config
-    CONFIG_FILENAMES = %w( constancy.yml )
-    VALID_CONFIG_KEYS = %w( sync consul vault constancy )
+    CONFIG_FILENAMES = %w( paramsync.yml )
+    VALID_CONFIG_KEYS = %w( sync consul vault paramsync )
     VALID_VAULT_KEY_PATTERNS = [ %r{^vault\.[A-Za-z][A-Za-z0-9_-]*$}, %r{^vault$} ]
     VALID_CONFIG_KEY_PATTERNS = VALID_VAULT_KEY_PATTERNS
     VALID_CONSUL_CONFIG_KEYS = %w( url datacenter token_source )
     VALID_VAULT_CONFIG_KEYS = %w( url consul_token_path consul_token_field )
-    VALID_CONSTANCY_CONFIG_KEYS = %w( verbose chomp delete color )
+    VALID_PARAMSYNC_CONFIG_KEYS = %w( verbose chomp delete color )
     DEFAULT_CONSUL_URL = "http://localhost:8500"
     DEFAULT_CONSUL_TOKEN_SOURCE = "none"
     DEFAULT_VAULT_CONSUL_TOKEN_FIELD = "token"
@@ -41,7 +41,7 @@ class Constancy
       def only_valid_config_keys!(keylist)
         (keylist - VALID_CONFIG_KEYS).each do |key|
           if not VALID_CONFIG_KEY_PATTERNS.find { |pattern| key =~ pattern }
-            raise Constancy::ConfigFileInvalid.new("'#{key}' is not a valid configuration key")
+            raise Paramsync::ConfigFileInvalid.new("'#{key}' is not a valid configuration key")
           end
         end
         true
@@ -50,15 +50,15 @@ class Constancy
 
     def initialize(path: nil, targets: nil, call_external_apis: true)
       if path.nil? or File.directory?(path)
-        self.config_file = Constancy::Config.discover(dir: path)
+        self.config_file = Paramsync::Config.discover(dir: path)
       elsif File.exist?(path)
         self.config_file = path
       else
-        raise Constancy::ConfigFileNotFound.new
+        raise Paramsync::ConfigFileNotFound.new
       end
 
       if self.config_file.nil? or not File.exist?(self.config_file) or not File.readable?(self.config_file)
-        raise Constancy::ConfigFileNotFound.new
+        raise Paramsync::ConfigFileNotFound.new
       end
 
       self.config_file = File.expand_path(self.config_file)
@@ -86,7 +86,7 @@ class Constancy
 
     def parse_vault_token_sources!(raw)
       raw.keys.select { |key| VALID_VAULT_KEY_PATTERNS.find { |pattern| key =~ pattern } }.collect do |key|
-        [key, Constancy::VaultTokenSource.new(name: key, config: raw[key])]
+        [key, Paramsync::VaultTokenSource.new(name: key, config: raw[key])]
       end.to_h
     end
 
@@ -95,7 +95,7 @@ class Constancy
       begin
         raw = YAML.load(ERB.new(File.read(self.config_file)).result)
       rescue
-        raise Constancy::ConfigFileInvalid.new("Unable to parse config file as YAML")
+        raise Paramsync::ConfigFileInvalid.new("Unable to parse config file as YAML")
       end
 
       if raw.is_a? FalseClass
@@ -104,25 +104,25 @@ class Constancy
       end
 
       if not raw.is_a? Hash
-        raise Constancy::ConfigFileInvalid.new("Config file must form a hash")
+        raise Paramsync::ConfigFileInvalid.new("Config file must form a hash")
       end
 
-      Constancy::Config.only_valid_config_keys!(raw.keys)
+      Paramsync::Config.only_valid_config_keys!(raw.keys)
 
       self.consul_token_sources = {
-        "none" => Constancy::PassiveTokenSource.new,
-        "env" => Constancy::EnvTokenSource.new,
+        "none" => Paramsync::PassiveTokenSource.new,
+        "env" => Paramsync::EnvTokenSource.new,
       }.merge(
         self.parse_vault_token_sources!(raw),
       )
 
       raw['consul'] ||= {}
       if not raw['consul'].is_a? Hash
-        raise Constancy::ConfigFileInvalid.new("'consul' must be a hash")
+        raise Paramsync::ConfigFileInvalid.new("'consul' must be a hash")
       end
 
       if (raw['consul'].keys - VALID_CONSUL_CONFIG_KEYS) != []
-        raise Constancy::ConfigFileInvalid.new("Only the following keys are valid in the consul config: #{VALID_CONSUL_CONFIG_KEYS.join(", ")}")
+        raise Paramsync::ConfigFileInvalid.new("Only the following keys are valid in the consul config: #{VALID_CONSUL_CONFIG_KEYS.join(", ")}")
       end
 
       self.consul_url = raw['consul']['url'] || DEFAULT_CONSUL_URL
@@ -130,43 +130,43 @@ class Constancy
       self.default_consul_token_source =
         self.consul_token_sources[srcname].tap do |src|
           if src.nil?
-            raise Constancy::ConfigFileInvalid.new("Consul token source '#{consul_token_source}' is not defined")
+            raise Paramsync::ConfigFileInvalid.new("Consul token source '#{consul_token_source}' is not defined")
           end
         end
 
-      raw['constancy'] ||= {}
-      if not raw['constancy'].is_a? Hash
-        raise Constancy::ConfigFileInvalid.new("'constancy' must be a hash")
+      raw['paramsync'] ||= {}
+      if not raw['paramsync'].is_a? Hash
+        raise Paramsync::ConfigFileInvalid.new("'paramsync' must be a hash")
       end
 
-      if (raw['constancy'].keys - VALID_CONSTANCY_CONFIG_KEYS) != []
-        raise Constancy::ConfigFileInvalid.new("Only the following keys are valid in the 'constancy' config block: #{VALID_CONSTANCY_CONFIG_KEYS.join(", ")}")
+      if (raw['paramsync'].keys - VALID_PARAMSYNC_CONFIG_KEYS) != []
+        raise Paramsync::ConfigFileInvalid.new("Only the following keys are valid in the 'paramsync' config block: #{VALID_PARAMSYNC_CONFIG_KEYS.join(", ")}")
       end
 
       # verbose: default false
-      @is_verbose = raw['constancy']['verbose'] ? true : false
-      if ENV['CONSTANCY_VERBOSE']
+      @is_verbose = raw['paramsync']['verbose'] ? true : false
+      if ENV['PARAMSYNC_VERBOSE']
         @is_verbose = true
       end
 
       # chomp: default true
-      if raw['constancy'].has_key?('chomp')
-        @do_chomp = raw['constancy']['chomp'] ? true : false
+      if raw['paramsync'].has_key?('chomp')
+        @do_chomp = raw['paramsync']['chomp'] ? true : false
       else
         @do_chomp = true
       end
 
       # delete: default false
-      @do_delete = raw['constancy']['delete'] ? true : false
+      @do_delete = raw['paramsync']['delete'] ? true : false
 
       raw['sync'] ||= []
       if not raw['sync'].is_a? Array
-        raise Constancy::ConfigFileInvalid.new("'sync' must be an array")
+        raise Paramsync::ConfigFileInvalid.new("'sync' must be an array")
       end
 
       # color: default true
-      if raw['constancy'].has_key?('color')
-        @use_color = raw['constancy']['color'] ? true : false
+      if raw['paramsync'].has_key?('color')
+        @use_color = raw['paramsync']['color'] ? true : false
       else
         @use_color = true
       end
@@ -185,7 +185,7 @@ class Constancy
           if not target['token_source'].nil?
             token_source = self.consul_token_sources[target['token_source']]
             if token_source.nil?
-              raise Constancy::ConfigFileInvalid.new("Consul token source '#{target['token_source']}' is not defined")
+              raise Paramsync::ConfigFileInvalid.new("Consul token source '#{target['token_source']}' is not defined")
             end
             target.delete('token_source')
           end
@@ -205,7 +205,7 @@ class Constancy
                        else
                          ""
                        end
-        self.sync_targets << Constancy::SyncTarget.new(config: target, consul_url: consul_url, token_source: token_source, base_dir: self.base_dir, call_external_apis: self.call_external_apis)
+        self.sync_targets << Paramsync::SyncTarget.new(config: target, consul_url: consul_url, token_source: token_source, base_dir: self.base_dir, call_external_apis: self.call_external_apis)
       end
     end
   end

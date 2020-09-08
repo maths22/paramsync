@@ -1,6 +1,6 @@
 # This software is public domain. No rights are reserved. See LICENSE for more information.
 
-class Constancy
+class Paramsync
   class SyncTarget
     VALID_CONFIG_KEYS = %w( name type datacenter prefix path exclude chomp delete erb_enabled )
     attr_accessor :name, :type, :datacenter, :prefix, :path, :exclude, :consul, :erb_enabled, :consul_url, :token_source, :call_external_apis
@@ -11,15 +11,15 @@ class Constancy
 
     def initialize(config:, consul_url:, token_source:, base_dir:, call_external_apis: true)
       if not config.is_a? Hash
-        raise Constancy::ConfigFileInvalid.new("Sync target entries must be specified as hashes")
+        raise Paramsync::ConfigFileInvalid.new("Sync target entries must be specified as hashes")
       end
 
-      if (config.keys - Constancy::SyncTarget::VALID_CONFIG_KEYS) != []
-        raise Constancy::ConfigFileInvalid.new("Only the following keys are valid in a sync target entry: #{Constancy::SyncTarget::VALID_CONFIG_KEYS.join(", ")}")
+      if (config.keys - Paramsync::SyncTarget::VALID_CONFIG_KEYS) != []
+        raise Paramsync::ConfigFileInvalid.new("Only the following keys are valid in a sync target entry: #{Paramsync::SyncTarget::VALID_CONFIG_KEYS.join(", ")}")
       end
 
-      if (Constancy::SyncTarget::REQUIRED_CONFIG_KEYS - config.keys) != []
-        raise Constancy::ConfigFileInvalid.new("The following keys are required in a sync target entry: #{Constancy::SyncTarget::REQUIRED_CONFIG_KEYS.join(", ")}")
+      if (Paramsync::SyncTarget::REQUIRED_CONFIG_KEYS - config.keys) != []
+        raise Paramsync::ConfigFileInvalid.new("The following keys are required in a sync target entry: #{Paramsync::SyncTarget::REQUIRED_CONFIG_KEYS.join(", ")}")
       end
 
       @base_dir = base_dir
@@ -27,13 +27,13 @@ class Constancy
       self.prefix = config['prefix']
       self.path = config['path'] || config['prefix']
       self.name = config['name']
-      self.type = (config['type'] || Constancy::SyncTarget::DEFAULT_TYPE).to_sym
-      unless Constancy::SyncTarget::VALID_TYPES.include?(self.type)
-        raise Constancy::ConfigFileInvalid.new("Sync target '#{self.name || self.path}' has type '#{self.type}'. But only the following types are valid: #{Constancy::SyncTarget::VALID_TYPES.collect(&:to_s).join(", ")}")
+      self.type = (config['type'] || Paramsync::SyncTarget::DEFAULT_TYPE).to_sym
+      unless Paramsync::SyncTarget::VALID_TYPES.include?(self.type)
+        raise Paramsync::ConfigFileInvalid.new("Sync target '#{self.name || self.path}' has type '#{self.type}'. But only the following types are valid: #{Paramsync::SyncTarget::VALID_TYPES.collect(&:to_s).join(", ")}")
       end
 
       if self.type == :file and File.directory?(self.base_path)
-        raise Constancy::ConfigFileInvalid.new("Sync target '#{self.name || self.path}' has type 'file', but path '#{self.path}' is a directory.")
+        raise Paramsync::ConfigFileInvalid.new("Sync target '#{self.name || self.path}' has type 'file', but path '#{self.path}' is a directory.")
       end
 
       self.exclude = config['exclude'] || []
@@ -144,7 +144,7 @@ class Constancy
       resp = self.consul.get(self.prefix, :recurse, dc: self.datacenter)
 
       return @remote_items if resp.values.nil?
-      Constancy::Util.flatten_hash(resp.values).each_pair do |key, value|
+      Paramsync::Util.flatten_hash(resp.values).each_pair do |key, value|
         @remote_items[key.join("/")] = (value.nil? ? '' : value)
       end
 
@@ -152,7 +152,7 @@ class Constancy
     end
 
     def diff(mode)
-      Constancy::Diff.new(target: self, local: self.local_items, remote: self.remote_items, mode: mode)
+      Paramsync::Diff.new(target: self, local: self.local_items, remote: self.remote_items, mode: mode)
     end
 
     private def flatten_hash(prefix, hash)

@@ -1,6 +1,6 @@
 # This software is public domain. No rights are reserved. See LICENSE for more information.
 
-require_relative '../constancy'
+require_relative '../paramsync'
 require 'diffy'
 require_relative 'cli/check_command'
 require_relative 'cli/push_command'
@@ -8,7 +8,7 @@ require_relative 'cli/pull_command'
 require_relative 'cli/config_command'
 require_relative 'cli/targets_command'
 
-class Constancy
+class Paramsync
   class CLI
     class << self
       attr_accessor :command, :cli_mode, :config_file, :extra_args, :targets
@@ -78,43 +78,43 @@ USAGE
       end
 
       def configure(call_external_apis: true)
-        return if Constancy.configured?
+        return if Paramsync.configured?
 
         begin
-          Constancy.configure(path: self.config_file, targets: self.targets, call_external_apis: call_external_apis)
+          Paramsync.configure(path: self.config_file, targets: self.targets, call_external_apis: call_external_apis)
 
-        rescue Constancy::ConfigFileNotFound
+        rescue Paramsync::ConfigFileNotFound
           if self.config_file.nil?
-            STDERR.puts "constancy: ERROR: No configuration file found"
+            STDERR.puts "paramsync: ERROR: No configuration file found"
           else
-            STDERR.puts "constancy: ERROR: Configuration file '#{self.config_file}' was not found"
+            STDERR.puts "paramsync: ERROR: Configuration file '#{self.config_file}' was not found"
           end
           exit 1
 
-        rescue Constancy::ConfigFileInvalid => e
+        rescue Paramsync::ConfigFileInvalid => e
           if self.config_file.nil?
-            STDERR.puts "constancy: ERROR: Configuration file is invalid:"
+            STDERR.puts "paramsync: ERROR: Configuration file is invalid:"
           else
-            STDERR.puts "constancy: ERROR: Configuration file '#{self.config_file}' is invalid:"
+            STDERR.puts "paramsync: ERROR: Configuration file '#{self.config_file}' is invalid:"
           end
           STDERR.puts "  #{e}"
           exit 1
 
-        rescue Constancy::ConsulTokenRequired => e
-          STDERR.puts "constancy: ERROR: No Consul token could be found: #{e}"
+        rescue Paramsync::ConsulTokenRequired => e
+          STDERR.puts "paramsync: ERROR: No Consul token could be found: #{e}"
           exit 1
 
-        rescue Constancy::VaultConfigInvalid => e
-          STDERR.puts "constancy: ERROR: Vault configuration invalid: #{e}"
+        rescue Paramsync::VaultConfigInvalid => e
+          STDERR.puts "paramsync: ERROR: Vault configuration invalid: #{e}"
           exit 1
 
         end
 
-        if Constancy.config.sync_targets.count < 1
+        if Paramsync.config.sync_targets.count < 1
           if self.targets.nil?
-            STDERR.puts "constancy: WARNING: No sync targets are defined"
+            STDERR.puts "paramsync: WARNING: No sync targets are defined"
           else
-            STDERR.puts "constancy: WARNING: No sync targets were found that matched the specified list"
+            STDERR.puts "paramsync: WARNING: No sync targets were found that matched the specified list"
           end
         end
       end
@@ -129,21 +129,21 @@ USAGE
 
         when :command
           case self.command
-          when 'check'      then Constancy::CLI::CheckCommand.run(self.extra_args)
-          when 'push'       then Constancy::CLI::PushCommand.run(self.extra_args)
-          when 'pull'       then Constancy::CLI::PullCommand.run(self.extra_args)
-          when 'config'     then Constancy::CLI::ConfigCommand.run
-          when 'targets'    then Constancy::CLI::TargetsCommand.run
+          when 'check'      then Paramsync::CLI::CheckCommand.run(self.extra_args)
+          when 'push'       then Paramsync::CLI::PushCommand.run(self.extra_args)
+          when 'pull'       then Paramsync::CLI::PullCommand.run(self.extra_args)
+          when 'config'     then Paramsync::CLI::ConfigCommand.run
+          when 'targets'    then Paramsync::CLI::TargetsCommand.run
           when nil          then self.print_usage
 
           else
-            STDERR.puts "constancy: ERROR: unknown command '#{self.command}'"
+            STDERR.puts "paramsync: ERROR: unknown command '#{self.command}'"
             STDERR.puts
             self.print_usage
           end
 
         else
-          STDERR.puts "constancy: ERROR: unknown CLI mode '#{self.cli_mode}'"
+          STDERR.puts "paramsync: ERROR: unknown CLI mode '#{self.cli_mode}'"
           exit 1
 
         end
