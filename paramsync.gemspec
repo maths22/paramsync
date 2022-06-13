@@ -26,6 +26,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'aws-sdk-ssm', '~> 1.89.0'
   s.add_dependency 'aws-sdk-kms', '~> 1.37.0'
+  s.add_dependency 'diffy', '~> 3.2'
 
   s.add_development_dependency 'rspec', '~> 3.0'
 end

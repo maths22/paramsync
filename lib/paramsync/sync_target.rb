@@ -5,7 +5,7 @@ class Paramsync
     VALID_CONFIG_KEYS = %w( name type region prefix path exclude chomp delete erb_enabled account )
     attr_accessor :name, :type, :region, :prefix, :path, :exclude, :erb_enabled, :account, :ssm
 
-    REQUIRED_CONFIG_KEYS = %w( prefix region account )
+    REQUIRED_CONFIG_KEYS = %w( prefix region )
     VALID_TYPES = [ :dir, :file ]
     DEFAULT_TYPE = :dir
 
@@ -47,14 +47,14 @@ class Paramsync
         @do_delete = false
       end
 
-      self.ssm = Aws::SSM::Client.new(
+      self.ssm = Aws::SSM::Client.new(**{
         region: region,
-        credentials: Aws::AssumeRoleCredentials.new(
+        credentials: account ? Aws::AssumeRoleCredentials.new(
           client: Aws::STS::Client.new(region: region),
           role_arn: account,
           role_session_name: "paramsync"
-        ),
-      )
+        ) : nil,
+      }.compact)
       self.erb_enabled = config['erb_enabled']
     end
 

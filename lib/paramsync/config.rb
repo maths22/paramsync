@@ -131,14 +131,14 @@ class Paramsync
       end
 
       if raw['ssm'].has_key?('kms')
-        self.kms_client = Aws::KMS::Client.new(
+        self.kms_client = Aws::KMS::Client.new(**{
           region: raw['ssm']['kms']['region'],
-          credentials: Aws::AssumeRoleCredentials.new(
+          credentials: raw['ssm']['kms']['role'] ? Aws::AssumeRoleCredentials.new(
             client: Aws::STS::Client.new(region: raw['ssm']['kms']['region']),
             role_arn: raw['ssm']['kms']['role'],
             role_session_name: "paramsync"
-          ),
-        )
+          ) : nil,
+          }.compact)
         self.kms_key = raw['ssm']['kms']['arn']
       end
 
@@ -151,9 +151,11 @@ class Paramsync
           if target['delete'].nil?
             target['delete'] = self.delete?
           end
-          account = self.ssm_accounts[target['account']]
-          if account.nil?
-            raise Paramsync::ConfigFileInvalid.new("Account '#{target['account']}' is not defined")
+          if target['account']
+            account = self.ssm_accounts[target['account']]
+            if account.nil?
+              raise Paramsync::ConfigFileInvalid.new("Account '#{target['account']}' is not defined")
+            end
           end
         end
 
@@ -165,7 +167,7 @@ class Paramsync
           next if not self.target_allowlist.include?(target['name'])
         end
 
-        self.sync_targets << Paramsync::SyncTarget.new(config: target, account: account['role'], base_dir: self.base_dir)
+        self.sync_targets << Paramsync::SyncTarget.new(config: target, account: account ? account['role'] : nil, base_dir: self.base_dir)
       end
     end
   end
